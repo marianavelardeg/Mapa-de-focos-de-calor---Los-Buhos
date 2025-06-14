@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Mapa Web de Incendios</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <!-- MarkerCluster CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+
+  <style>
+    html, body { margin:0; padding:0; height:100%; }
+    #map {
+      position: absolute; top: 0; bottom: 0; left: 0;
+      right: 400px; z-index: 500;
+    }
+    #sidebar {
+      position: absolute; top: 0; bottom: 0; right: 0;
+      width: 400px; padding: 20px;
+      background: #fff; overflow: auto;
+      z-index: 1000;
+    }
+    #chart { width:100%; height:250px; }
+
+    .marker-cluster {
+      color:#fff; text-align:center; border-radius:50%;
+      font-size:14px; width:40px; height:40px; line-height:40px;
+      border:2px solid white;
+    }
+    .marker-cluster-small  { background-color: rgba(0,200,0,0.6); }
+    .marker-cluster-medium { background-color: rgba(255,200,0,0.6); }
+    .marker-cluster-large  { background-color: rgba(255,0,0,0.6); }
+
+    .leaflet-tooltip.fecha-tooltip {
+      background: rgba(255,255,255,0.8);
+      border: none; color:#000; font-size:12px; font-weight:bold;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="sidebar">
+    <h2>Controles</h2>
+    <label><input type="checkbox" id="cb-2022" checked> Focos 2022</label><br>
+    <label><input type="checkbox" id="cb-2023" checked> Focos 2023</label><br>
+    <label><input type="checkbox" id="cb-2024" checked> Focos 2024</label><br>
+    <label><input type="checkbox" id="cb-lim" checked> Límites de predios</label><br>
+    <label><input type="checkbox" id="cb-pot" checked> Potreros</label><br>
+
+    <h2>Estadísticas</h2>
+    <canvas id="chart"></canvas>
+  </div>
+
+  <!-- Librerías -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+  (async()=>{
+
+    console.log('🔄 Arrancando script');
+
+    // 1) Inicializar mapa
+    const map = L.map('map', { zoomControl:false, attributionControl:false });
+    L.control.zoom({ position:'topleft' }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // 2) Cargar límites y potreros
+    const [limGeo, potGeo] = await Promise.all([
+      fetch('Data/limites_propiedades.geojson').then(r=>r.json()),
+      fetch('Data/potreros.geojson').then(r=>r.json())
+    ]);
+    const layerLim = L.geoJSON(limGeo, { style:{color:'#000',weight:2} }).addTo(map);
+    const layerPot = L.geoJSON(potGeo, { style:{color:'#555',weight:1,dashArray:'4 4'} }).addTo(map);
+    map.fitBounds(layerLim.getBounds());
+    console.log('✅ Límites cargados y centrado');
+
+    // 3) Unir todos los predios en un polígono
+    let unionPoly = limGeo.features[0];
+    for (let i=1; i<limGeo.features.length; i++) {
+      unionPoly = turf.union(unionPoly, limGeo.features[i]);
+    }
+
+    // 4) Crear buffer de 1 km
+    const bufferPoly = turf.buffer(unionPoly, 1, { units:'kilometers' });
+
+    // 5) Función cluster
+    function makeCluster(){
+      return L.markerClusterGroup({
+        iconCreateFunction: c=>{
+          const n=c.getChildCount();
+          const cls = n<10? 'small': n<50? 'medium':'large';
+          return L.divIcon({
+            html: n,
+            className: 'marker-cluster marker-cluster-'+cls,
+            iconSize: [40,40]
+          });
+        }
+      });
+    }
+
+    // 6) Helper para saber si cae en el buffer
+    function ptInBuffer(pt) {
+      return turf.booleanPointInPolygon(pt, bufferPoly);
+    }
+    // Helper para saber si cae en el polígono original
+    function ptInUnion(pt) {
+      return turf.booleanPointInPolygon(pt, unionPoly);
+    }
+
+    // 7) Cargar focos y clusters
+    const años = [2022,2023,2024];
+    const clusters = {};
+
+    for (let año of años) {
+      const raw = await fetch(`Data/focos_${año}.geojson`).then(r=>r.json());
+      const pts = raw.features.filter(pt => ptInBuffer(pt));
+      const cl = makeCluster();
+
+      // 7.1) Agregar cada punto al cluster
+      pts.forEach(pt=>{
+        const [lon, lat] = pt.geometry.coordinates;
+        const marker = L.circleMarker([lat, lon], {
+          radius: ptInUnion(pt) ? 6 : 0,
+          fillOpacity: ptInUnion(pt) ? 0.8 : 0,
+          color:      ptInUnion(pt) ? '#f00' : undefined,
+          weight:     ptInUnion(pt) ? 1   : undefined,
+          fillColor:  ptInUnion(pt) ? '#f00' : undefined
+        });
+        marker.feature = pt;
+        if (marker.options.radius > 0) {
+          marker.on('mouseover', ()=>{
+            const fecha = pt.properties.date_text || pt.properties.ACQ_DATE;
+            marker.bindTooltip(fecha, {
+              permanent:false,
+              direction:'top',
+              className:'fecha-tooltip'
+            }).openTooltip();
+          });
+          marker.on('mouseout', ()=> marker.closeTooltip());
+        }
+        cl.addLayer(marker);
+      });
+
+      // 7.2) Extraer clusters de 1 y dibujarlos directos (para mantener tooltip siempre visible)
+      cl.eachLayer(layer=>{
+        if (layer.getChildCount && layer.getChildCount()===1) {
+          const single = layer.getAllChildMarkers()[0];
+          const [lat, lon] = single.getLatLng().toArray();
+          cl.removeLayer(layer);
+          const feat = pts.find(pt=>
+            Math.abs(pt.geometry.coordinates[0]-lon)<1e-6 &&
+            Math.abs(pt.geometry.coordinates[1]-lat)<1e-6
+          );
+          L.circleMarker([lat, lon], {
+            radius:6, fillColor:'#f00', color:'#800',
+            weight:1, fillOpacity:0.8
+          })
+          .bindTooltip(feat.properties.date_text||feat.properties.ACQ_DATE, {
+            permanent:true,
+            direction:'center',
+            className:'fecha-tooltip'
+          })
+          .addTo(map);
+        }
+      });
+
+      clusters[año] = cl.addTo(map);
+    }
+    console.log('✅ Clusters cargados');
+
+    // 8) Calcular estadísticas (solo dentro del polígono original)
+    const counts = {};
+    for (let año of años) {
+      const raw = await fetch(`Data/focos_${año}.geojson`).then(r=>r.json());
+      counts[año] = raw.features.filter(pt => ptInUnion(pt)).length;
+    }
+    console.log('✅ Conteos:', counts);
+
+    // 9) Dibujar Chart.js
+    new Chart(document.getElementById('chart'), {
+      type:'bar',
+      data:{
+        labels:años.map(String),
+        datasets:[{
+          label:'Focos en predios',
+          data:años.map(a=>counts[a]),
+          backgroundColor:'rgba(0,150,200,0.5)'
+        }]
+      },
+      options:{
+        scales:{ y:{ beginAtZero:true } },
+        plugins:{ legend:{ display:true } }
+      }
+    });
+
+    // 10) Conectar checkboxes
+    document.getElementById('cb-2022').onchange = e=>
+      e.target.checked? map.addLayer(clusters[2022]) : map.removeLayer(clusters[2022]);
+    document.getElementById('cb-2023').onchange = e=>
+      e.target.checked? map.addLayer(clusters[2023]) : map.removeLayer(clusters[2023]);
+    document.getElementById('cb-2024').onchange = e=>
+      e.target.checked? map.addLayer(clusters[2024]) : map.removeLayer(clusters[2024]);
+    document.getElementById('cb-lim').onchange = e=>
+      e.target.checked? map.addLayer(layerLim) : map.removeLayer(layerLim);
+    document.getElementById('cb-pot').onchange = e=>
+      e.target.checked? map.addLayer(layerPot) : map.removeLayer(layerPot);
+
+    console.log('✅ Mapa y estadísticas listas');
+
+  })();
+  </script>
+</body>
+</html>
+
+
