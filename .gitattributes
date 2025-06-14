@@ -1,3 +1,0 @@
-﻿Data/focos_2022.geojson filter=lfs diff=lfs merge=lfs -text
-Data/focos_2023.geojson filter=lfs diff=lfs merge=lfs -text
-Data/focos_2024.geojson filter=lfs diff=lfs merge=lfs -text
