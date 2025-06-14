@@ -1,0 +1,11 @@
+﻿# 0) Sitúate en la carpeta de tu proyecto
+cd "C:\BUHOS\Mapa de focos de calor - WEB"
+
+# 1) Habilita Git LFS
+git lfs install
+
+# 2) Crea o sobrescribe el archivo .gitattributes con las reglas LFS
+@"
+Data/focos_2022.geojson filter=lfs diff=lfs merge=lfs -text
+Data/focos_2023.geojson filter=lfs diff=lfs merge=lfs -text
+Data/focos_2024.geojson filter=lfs diff=lfs merge=lfs -text
