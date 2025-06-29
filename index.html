@@ -16,21 +16,23 @@
       margin: 0; padding: 0; height: 100%;
     }
     #map {
-      position: absolute;
-      top: 0; bottom: 0; left: 0;
-      right: 400px;
-      z-index: 500;
-    }
-    #sidebar {
-      position: absolute;
+       position: absolute;
+        top: 0; bottom: 0; left: 0;
+         right: 30%; /* Cambiamos el espacio reservado */
+          z-index: 500;
+        }
+   #sidebar {
+     position: absolute;
       top: 0; bottom: 0; right: 0;
-      width: 400px;
-      padding: 20px;
-      box-sizing: border-box;
-      background: #fff;
-      overflow: auto;
-      z-index: 1000;
-    }
+       width: 30%;
+       min-width: 260px;
+       max-width: 400px;
+       padding: 20px;
+       box-sizing: border-box;
+       background: #fff;
+        overflow: auto;
+        z-index: 1000;
+      }
 
     /* ================================
        Aquí ajustamos el gráfico
