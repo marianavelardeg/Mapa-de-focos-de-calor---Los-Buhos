@@ -3,7 +3,7 @@
   <identifier></identifier>
   <parentidentifier></parentidentifier>
   <language></language>
-  <type></type>
+  <type>dataset</type>
   <title></title>
   <abstract></abstract>
   <links/>
@@ -13,7 +13,7 @@
   <crs>
     <spatialrefsys nativeFormat="Wkt">
       <wkt></wkt>
-      <proj4></proj4>
+      <proj4>+proj=longlat +datum=WGS84 +no_defs</proj4>
       <srsid>0</srsid>
       <srid>0</srid>
       <authid></authid>

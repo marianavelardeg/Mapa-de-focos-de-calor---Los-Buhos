@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"name": "Fpp_Leveimportancia",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "Id": 0 }, "geometry": { "type": "MultiLineString", "coordinates": [ [ [ -62.678110056813765, -15.893343910791451 ], [ -62.678101585038945, -15.893342659551509 ], [ -62.674467456423322, -15.918374573345069 ] ] ] } }
+]
+}
