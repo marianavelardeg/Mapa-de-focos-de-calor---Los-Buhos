@@ -1,3 +1,8 @@
 version https://git-lfs.github.com/spec/v1
-oid sha256:3bbac7e3d128fd1de4ce0d278111337f7b351c3d67c2fc6be5f78d8a0477954f
-size 289
+<<<<<<< HEAD
+oid sha256:308ab86d6f44cf39f56cbb09150ee3c76fe8c44fd1f99e98b267cf63e098e3f9
+size 51901
+=======
+oid sha256:bc2371ea797e61900b9e4ec5f20c84a9a33096a514affcc8c58851d2ff5f111f
+size 51917
+>>>>>>> 5cd9a50 (Añadir GeoJSON normales al main)
